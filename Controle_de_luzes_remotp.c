@@ -139,6 +139,15 @@ void gpio_irq_handler(uint gpio, uint32_t event_mask) {
         }
     }   
 }
+
+void preenche_matriz(int R, int G, int B){
+    for (int i =0; i < LED_COUNT; i++){
+        npSetLED(i, R, G, B);
+        sleep_us(200);
+    }
+    npWrite();
+}
+
 // Função principal
 int main()
 {
@@ -264,35 +273,24 @@ void user_request(char **request){
 
     if (strstr(*request, "GET /blue_on") != NULL)
     {
-        gpio_put(LED_BLUE_PIN, 1);
-    }
-    else if (strstr(*request, "GET /blue_off") != NULL)
-    {
-        gpio_put(LED_BLUE_PIN, 0);
+        preenche_matriz(0, 0, 255);
     }
     else if (strstr(*request, "GET /green_on") != NULL)
     {
-        gpio_put(LED_GREEN_PIN, 1);
-    }
-    else if (strstr(*request, "GET /green_off") != NULL)
-    {
-        gpio_put(LED_GREEN_PIN, 0);
+        preenche_matriz(0, 255, 0);
     }
     else if (strstr(*request, "GET /red_on") != NULL)
     {
-        gpio_put(LED_RED_PIN, 1);
-    }
-    else if (strstr(*request, "GET /red_off") != NULL)
-    {
-        gpio_put(LED_RED_PIN, 0);
+        preenche_matriz(255, 0, 0);
     }
     else if (strstr(*request, "GET /on") != NULL)
     {
-        cyw43_arch_gpio_put(LED_PIN, 1);
+        preenche_matriz(255, 255, 255);
     }
     else if (strstr(*request, "GET /off") != NULL)
     {
-        cyw43_arch_gpio_put(LED_PIN, 0);
+        npClear();
+        npWrite();
     }
 };
 
@@ -350,11 +348,8 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
              "<body>\n"
              "<h1>Embarcatech: LED Control</h1>\n"
              "<form action=\"./blue_on\"><button>Ligar Azul</button></form>\n"
-             "<form action=\"./blue_off\"><button>Desligar Azul</button></form>\n"
              "<form action=\"./green_on\"><button>Ligar Verde</button></form>\n"
-             "<form action=\"./green_off\"><button>Desligar Verde</button></form>\n"
              "<form action=\"./red_on\"><button>Ligar Vermelho</button></form>\n"
-             "<form action=\"./red_off\"><button>Desligar Vermelho</button></form>\n"
              "<p class=\"temperature\">Temperatura Interna: %.2f &deg;C</p>\n"
              "</body>\n"
              "</html>\n",
