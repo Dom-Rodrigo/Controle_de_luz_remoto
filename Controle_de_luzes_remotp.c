@@ -23,8 +23,8 @@
 
 #include "pico/bootrom.h"
 // Credenciais WIFI - Tome cuidado se publicar no github!
-#define WIFI_SSID "C24Q1"
-#define WIFI_PASSWORD "aabb142536"
+#define WIFI_SSID "El_Cid"
+#define WIFI_PASSWORD "domrodrigo05"
 
 // Definição dos pinos dos LEDs
 #define LED_PIN CYW43_WL_GPIO_LED_PIN   // GPIO do CI CYW43
@@ -35,6 +35,11 @@
 #define BUTTON_B 6
 #define LED_COUNT 25
 #define LED_MATRIZ 7
+
+
+#define VRX_PIN 26   
+#define VRY_PIN 27
+#define BUTTON_JOYSTICK 22
 
 struct pixel_t
 {
@@ -49,6 +54,7 @@ npLED_t leds[LED_COUNT];
 // Variáveis para uso da máquina PIO.
 PIO np_pio;
 uint sm;
+float led_intensity;
 
 /**
  * Inicializa a máquina PIO para controle da matriz de LEDs.
@@ -130,12 +136,17 @@ float temp_read(void);
 void user_request(char **request);
 
 volatile uint32_t last_time;
+bool modo_manual =  false;
 void gpio_irq_handler(uint gpio, uint32_t event_mask) {
     uint32_t current_time = to_us_since_boot(get_absolute_time());
     if (current_time - last_time > 500000){
         if (!gpio_get(BUTTON_B)) {
            last_time = current_time;
-        reset_usb_boot(0, 0);
+            reset_usb_boot(0, 0);
+        }
+        if (!gpio_get(BUTTON_JOYSTICK)) {
+            modo_manual=!modo_manual;
+            last_time = current_time;
         }
     }   
 }
@@ -160,6 +171,9 @@ int main()
     npInit(LED_MATRIZ);
     npClear();
 
+    gpio_set_irq_enabled_with_callback(BUTTON_B, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+    gpio_set_irq_enabled_with_callback(BUTTON_JOYSTICK, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
+
     //Inicializa a arquitetura do cyw43
     while (cyw43_arch_init())
     {
@@ -168,8 +182,7 @@ int main()
         return -1;
     }
 
-    gpio_set_irq_enabled_with_callback(BUTTON_B, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
-
+    sleep_ms(1000);
     // GPIO do CI CYW43 em nível baixo
     cyw43_arch_gpio_put(LED_PIN, 0);
 
@@ -216,10 +229,32 @@ int main()
 
     // Inicializa o conversor ADC
     adc_init();
+    // adc_gpio_init(VRX_PIN); 
+    adc_gpio_init(VRY_PIN);
     adc_set_temp_sensor_enabled(true);
+
+    // gpio_set_function(LED_MATRIZ, GPIO_FUNC_PWM);
+    // uint slice = pwm_gpio_to_slice_num(LED_MATRIZ);
+    // pwm_set_wrap(slice, 0xffff);
+    // pwm_set_clkdiv(slice, 32);
+    // pwm_set_enabled(slice, true);
 
     while (true)
     {
+
+        if (modo_manual){
+            adc_select_input(0); 
+            uint16_t vry_value = adc_read();
+            led_intensity = ((float) vry_value/4096);
+            printf("li: %f\n", led_intensity);
+
+
+            // adc_select_input(1); 
+            // uint16_t vrx_value = adc_read(); 
+
+        }
+
+
         /* 
         * Efetuar o processamento exigido pelo cyw43_driver ou pela stack TCP/IP.
         * Este método deve ser chamado periodicamente a partir do ciclo principal 
@@ -259,6 +294,10 @@ void gpio_led_bitdog(void){
     gpio_init(LED_RED_PIN);
     gpio_set_dir(LED_RED_PIN, GPIO_OUT);
     gpio_put(LED_RED_PIN, false);
+
+    gpio_init(BUTTON_JOYSTICK);
+    gpio_set_dir(BUTTON_JOYSTICK, GPIO_IN);
+    gpio_pull_up(BUTTON_JOYSTICK);
 }
 
 // Função de callback ao aceitar conexões TCP
@@ -268,24 +307,25 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
     return ERR_OK;
 }
 
+
 // Tratamento do request do usuário - digite aqui
 void user_request(char **request){
 
     if (strstr(*request, "GET /blue_on") != NULL)
     {
-        preenche_matriz(0, 0, 255);
+        preenche_matriz(0, 0, 255*led_intensity);
     }
     else if (strstr(*request, "GET /green_on") != NULL)
     {
-        preenche_matriz(0, 255, 0);
+        preenche_matriz(0, 255*led_intensity, 0);
     }
     else if (strstr(*request, "GET /red_on") != NULL)
     {
-        preenche_matriz(255, 0, 0);
+        preenche_matriz(255*led_intensity, 0, 0);
     }
     else if (strstr(*request, "GET /on") != NULL)
     {
-        preenche_matriz(255, 255, 255);
+        preenche_matriz(255*led_intensity, 255*led_intensity, 255*led_intensity);
     }
     else if (strstr(*request, "GET /off") != NULL)
     {
