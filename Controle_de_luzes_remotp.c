@@ -12,6 +12,9 @@
 
 #include "pico/stdlib.h"         // Biblioteca da Raspberry Pi Pico para funções padrão (GPIO, temporização, etc.)
 #include "hardware/adc.h"        // Biblioteca da Raspberry Pi Pico para manipulação do conversor ADC
+#include "hardware/i2c.h"
+#include "lib/ssd1306.h"
+#include "lib/font.h"
 #include "pico/cyw43_arch.h"     // Biblioteca para arquitetura Wi-Fi da Pico com CYW43  
 
 #include "lwip/pbuf.h"           // Lightweight IP stack - manipulação de buffers de pacotes de rede
@@ -41,6 +44,12 @@
 #define VRY_PIN 27
 #define BUTTON_JOYSTICK 22
 
+#define I2C_PORT i2c1
+#define I2C_SDA 14
+#define I2C_SCL 15
+#define endereco 0x3C
+
+
 struct pixel_t
 {
     uint8_t G, R, B; // Três valores de 8-bits compõem um pixel.
@@ -54,7 +63,7 @@ npLED_t leds[LED_COUNT];
 // Variáveis para uso da máquina PIO.
 PIO np_pio;
 uint sm;
-float led_intensity;
+volatile float led_intensity=1;
 
 /**
  * Inicializa a máquina PIO para controle da matriz de LEDs.
@@ -159,6 +168,7 @@ void preenche_matriz(int R, int G, int B){
     npWrite();
 }
 
+char status[15];
 // Função principal
 int main()
 {
@@ -167,6 +177,16 @@ int main()
 
     // Inicializar os Pinos GPIO para acionamento dos LEDs da BitDogLab
     gpio_led_bitdog();
+
+    i2c_init(I2C_PORT, 400 * 1000);
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCL);
+
+    ssd1306_t ssd;
+    ssd1306_init(&ssd, WIDTH, HEIGHT, false, endereco, I2C_PORT);
+    ssd1306_config(&ssd);
 
     npInit(LED_MATRIZ);
     npClear();
@@ -242,24 +262,27 @@ int main()
     while (true)
     {
 
+        ssd1306_draw_string(&ssd, "--MODO AUTO--", 0, 0);
         if (modo_manual){
             adc_select_input(0); 
             uint16_t vry_value = adc_read();
             led_intensity = ((float) vry_value/4096);
             printf("li: %f\n", led_intensity);
+            ssd1306_draw_string(&ssd, "--MODO MANUAL--", 0, 0);
+            sprintf(status, "INTENS  %.2f", led_intensity);
+            ssd1306_draw_string(&ssd, status, 0, 32);
 
-
-            // adc_select_input(1); 
+            // adc_select_nput(1); 
             // uint16_t vrx_value = adc_read(); 
 
         }
-
 
         /* 
         * Efetuar o processamento exigido pelo cyw43_driver ou pela stack TCP/IP.
         * Este método deve ser chamado periodicamente a partir do ciclo principal 
         * quando se utiliza um estilo de sondagem pico_cyw43_arch 
         */
+        ssd1306_send_data(&ssd);
         cyw43_arch_poll(); // Necessário para manter o Wi-Fi ativo
         sleep_ms(100);      // Reduz o uso da CPU
     }
@@ -379,9 +402,9 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
              "<head>\n"
              "<title> Embarcatech - LED Control </title>\n"
              "<style>\n"
-             "body { background-color: #b5e5fb; font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
+             "body { background-color:rgb(255, 253, 141); font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
              "h1 { font-size: 64px; margin-bottom: 30px; }\n"
-             "button { background-color: LightGray; font-size: 36px; margin: 10px; padding: 20px 40px; border-radius: 10px; }\n"
+             "button { background-color: rgb(150, 148, 63); font-size: 36px; margin: 10px; padding: 20px 40px; border-radius: 10px; }\n"
              ".temperature { font-size: 48px; margin-top: 30px; color: #333; }\n"
              "</style>\n"
              "</head>\n"

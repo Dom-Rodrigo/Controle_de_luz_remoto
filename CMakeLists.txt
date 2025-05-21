@@ -27,8 +27,8 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
-set(FREERTOS_KERNEL_PATH "/home/rodrigo-piropo/Downloads/FreeRTOSv202406.01-LTS/FreeRTOS-LTS/FreeRTOS/FreeRTOS-Kernel")
-include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
+# set(FREERTOS_KERNEL_PATH "/home/rodrigo-piropo/Downloads/FreeRTOSv202406.01-LTS/FreeRTOS-LTS/FreeRTOS/FreeRTOS-Kernel")
+# include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
 
 project(Controle_de_luzes_remotp C CXX ASM)
 
@@ -40,7 +40,7 @@ include_directories(${CMAKE_SOURCE_DIR}/lib)
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Controle_de_luzes_remotp Controle_de_luzes_remotp.c)
+add_executable(Controle_de_luzes_remotp Controle_de_luzes_remotp.c lib/ssd1306.c)
 
 pico_set_program_name(Controle_de_luzes_remotp "led_control_webserver")
 pico_set_program_version(Controle_de_luzes_remotp "0.1")
@@ -56,9 +56,8 @@ target_link_libraries(Controle_de_luzes_remotp
         pico_stdlib
         hardware_gpio
         hardware_adc
+        hardware_i2c
         hardware_pwm
-        FreeRTOS-Kernel 
-        FreeRTOS-Kernel-Heap4
         hardware_pio
         pico_bootrom
         pico_cyw43_arch_lwip_threadsafe_background
